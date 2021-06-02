@@ -415,6 +415,22 @@ func (c *L3RouteResolver) OnHostIPUpdate(update api.Update) (_ bool) {
 func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInfo) {
 	oldNodeInfo, nodeExisted := c.nodeNameToNodeInfo[nodeName]
 
+	newNodeInfoDebugStr := ""
+	if newNodeInfo != nil {
+		newNodeInfoDebugStr = fmt.Sprintf("%+v", *newNodeInfo)
+	}
+	oldNodeInfoDebugStr := ""
+	if nodeExisted {
+		oldNodeInfoDebugStr = fmt.Sprintf("%+v", oldNodeInfo)
+	}
+	logrus.WithFields(
+		logrus.Fields{
+			"nodename":    nodeName,
+			"newNodeInfo": newNodeInfoDebugStr,
+			"oldNodeInfo": oldNodeInfoDebugStr,
+		}).
+		Debug("node update received")
+
 	if (newNodeInfo == nil && !nodeExisted) || (newNodeInfo != nil && nodeExisted && oldNodeInfo.Equal(*newNodeInfo)) {
 		// No change.
 		return
