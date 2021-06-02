@@ -325,8 +325,15 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 	// Extract the nodename and check whether the node was known already.
 	nodeName := update.Key.(model.ResourceKey).Name
 
-	logCxt := logrus.WithField("node", nodeName).WithField("update", update)
-	logCxt.Debug("OnResourceUpdate triggered")
+	updateValueDebugStr := "nil"
+	if update.Value != nil {
+		updateValueDebugStr = fmt.Sprintf("%+v", update.Value.(*apiv3.Node))
+	}
+	logrus.WithFields(logrus.Fields{
+		"node":        nodeName,
+		"update":      update,
+		"updateValue": updateValueDebugStr,
+	}).Debug("OnResourceUpdate triggered")
 
 	// Update our tracking data structures.
 	var nodeInfo *l3rrNodeInfo
@@ -423,13 +430,11 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 	if nodeExisted {
 		oldNodeInfoDebugStr = fmt.Sprintf("%+v", oldNodeInfo)
 	}
-	logrus.WithFields(
-		logrus.Fields{
-			"nodename":    nodeName,
-			"newNodeInfo": newNodeInfoDebugStr,
-			"oldNodeInfo": oldNodeInfoDebugStr,
-		}).
-		Debug("node update received")
+	logrus.WithFields(logrus.Fields{
+		"nodename":    nodeName,
+		"newNodeInfo": newNodeInfoDebugStr,
+		"oldNodeInfo": oldNodeInfoDebugStr,
+	}).Debug("node update received")
 
 	if (newNodeInfo == nil && !nodeExisted) || (newNodeInfo != nil && nodeExisted && oldNodeInfo.Equal(*newNodeInfo)) {
 		// No change.
