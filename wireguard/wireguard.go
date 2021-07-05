@@ -106,6 +106,8 @@ func newNodeUpdateData() *nodeUpdateData {
 	}
 }
 
+type procSysWriter func(path, value string) error
+
 type Wireguard struct {
 	// Wireguard configuration (this will not change without a restart).
 	hostname string
@@ -156,6 +158,8 @@ type Wireguard struct {
 	// Callback function used to notify of public key updates for the local nodeData
 	statusCallback func(publicKey wgtypes.Key) error
 	opRecorder     logutils.OpRecorder
+
+	writeProcSys procSysWriter
 }
 
 func New(
@@ -178,6 +182,7 @@ func New(
 		deviceRouteProtocol,
 		statusCallback,
 		opRecorder,
+		writeProcSys,
 	)
 }
 
@@ -194,6 +199,7 @@ func NewWithShims(
 	deviceRouteProtocol int,
 	statusCallback func(publicKey wgtypes.Key) error,
 	opRecorder logutils.OpRecorder,
+	procSysWriter procSysWriter,
 ) *Wireguard {
 	// Create routetable. We provide dummy callbacks for ARP and conntrack processing.
 	rt := routetable.NewWithShims(
@@ -245,6 +251,7 @@ func NewWithShims(
 		localIPs:             set.New(),
 		localCIDRs:           set.New(),
 		opRecorder:           opRecorder,
+		writeProcSys:         procSysWriter,
 	}
 }
 
@@ -1344,11 +1351,9 @@ func (w *Wireguard) constructWireguardDeltaForResync(wireguardClient netlinkshim
 func (w *Wireguard) ensureLink(netlinkClient netlinkshim.Interface) (bool, error) {
 	logCxt := log.WithField("ifaceName", w.config.InterfaceName)
 
-	if w.config.RouteSource == "WorkloadIPs" {
-		log.Info("Enabling src valid mark for WireGuard")
-		if err := writeProcSys(allSrcValidMarkPath, "1"); err != nil {
-			return false, err
-		}
+	log.Info("Enabling src valid mark for WireGuard")
+	if err := w.writeProcSys(allSrcValidMarkPath, "1"); err != nil {
+		return false, err
 	}
 
 	link, err := netlinkClient.LinkByName(w.config.InterfaceName)

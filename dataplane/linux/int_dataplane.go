@@ -1258,8 +1258,7 @@ func (d *InternalDataplane) setUpIptablesBPF() {
 		t.UpdateChains(rpfChain)
 
 		var rawRules []iptables.Rule
-		if t.IPVersion == 4 && rulesConfig.WireguardEnabled && len(rulesConfig.WireguardInterfaceName) > 0 &&
-			rulesConfig.RouteSource == "WorkloadIPs" {
+		if t.IPVersion == 4 && rulesConfig.WireguardEnabled && len(rulesConfig.WireguardInterfaceName) > 0 {
 			// Set a mark on packets coming from any interface except for lo, wireguard, or pod veths to ensure the RPF
 			// check allows it.
 			log.Debug("Adding Wireguard iptables rule chain")

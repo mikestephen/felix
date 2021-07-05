@@ -17,6 +17,7 @@ package wireguard_test
 import (
 	"github.com/projectcalico/felix/logutils"
 	. "github.com/projectcalico/felix/wireguard"
+	"os"
 
 	"errors"
 	"fmt"
@@ -78,6 +79,41 @@ var (
 	routekey_4_throw = fmt.Sprintf("%d-%d-%s", tableIndex, 0, cidr_4)
 )
 
+type testProcSys struct {
+	state          map[string]string
+	pathsThatExist map[string]bool
+	Fail           bool
+}
+
+var (
+	procSysFail = errors.New("mock proc sys failure")
+)
+
+func (t *testProcSys) write(path, value string) error {
+	log.WithFields(log.Fields{
+		"path":  path,
+		"value": value,
+	}).Info("testProcSys writer")
+	if t.Fail {
+		return procSysFail
+	}
+	t.state[path] = value
+	return nil
+}
+
+func (t *testProcSys) stat(path string) (os.FileInfo, error) {
+	exists := t.pathsThatExist[path]
+	if exists {
+		return nil, nil
+	} else {
+		return os.Stat("/file/that/does/not/exist")
+	}
+}
+
+func (t *testProcSys) checkState(expected map[string]string) {
+	Expect(t.state).To(Equal(expected))
+}
+
 func mustGeneratePrivateKey() wgtypes.Key {
 	key, err := wgtypes.GeneratePrivateKey()
 	Expect(err).ToNot(HaveOccurred())
@@ -138,11 +174,15 @@ func (m *mockStatus) status(publicKey wgtypes.Key) error {
 }
 
 var _ = Describe("Enable wireguard", func() {
-	var wgDataplane, rtDataplane, rrDataplane *mocknetlink.MockNetlinkDataplane
-	var t *mocktime.MockTime
-	var s *mockStatus
-	var wg *Wireguard
-	var rule *netlink.Rule
+	var (
+		wgDataplane, rtDataplane, rrDataplane *mocknetlink.MockNetlinkDataplane
+
+		t           *mocktime.MockTime
+		s           *mockStatus
+		wg          *Wireguard
+		rule        *netlink.Rule
+		mockProcSys *testProcSys
+	)
 
 	BeforeEach(func() {
 		wgDataplane = mocknetlink.New()
@@ -153,6 +193,7 @@ var _ = Describe("Enable wireguard", func() {
 		// Setting an auto-increment greater than the route cleanup delay effectively
 		// disables the grace period for these tests.
 		t.SetAutoIncrement(11 * time.Second)
+		mockProcSys = &testProcSys{state: map[string]string{}, pathsThatExist: map[string]bool{}}
 
 		wg = NewWithShims(
 			hostname,
@@ -174,6 +215,7 @@ var _ = Describe("Enable wireguard", func() {
 			FelixRouteProtocol,
 			s.status,
 			logutils.NewSummarizer("test loop"),
+			mockProcSys.write,
 		)
 
 		rule = netlink.NewRule()
@@ -241,6 +283,12 @@ var _ = Describe("Enable wireguard", func() {
 			err := wg.Apply()
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(Equal(s.err))
+		})
+
+		It("should write /proc/sys entries", func() {
+			mockProcSys.checkState(map[string]string{
+				"/proc/sys/net/ipv4/conf/all/src_valid_mark": "1",
+			})
 		})
 
 		Describe("set the link up", func() {
@@ -1267,10 +1315,14 @@ var _ = Describe("Enable wireguard", func() {
 })
 
 var _ = Describe("Wireguard (disabled)", func() {
-	var wgDataplane, rtDataplane, rrDataplane *mocknetlink.MockNetlinkDataplane
-	var t *mocktime.MockTime
-	var s mockStatus
-	var wg *Wireguard
+	var (
+		wgDataplane, rtDataplane, rrDataplane *mocknetlink.MockNetlinkDataplane
+
+		t           *mocktime.MockTime
+		s           mockStatus
+		wg          *Wireguard
+		mockProcSys *testProcSys
+	)
 
 	BeforeEach(func() {
 		wgDataplane = mocknetlink.New()
@@ -1280,6 +1332,7 @@ var _ = Describe("Wireguard (disabled)", func() {
 		// Setting an auto-increment greater than the route cleanup delay effectively
 		// disables the grace period for these tests.
 		t.SetAutoIncrement(11 * time.Second)
+		mockProcSys = &testProcSys{state: map[string]string{}, pathsThatExist: map[string]bool{}}
 
 		wg = NewWithShims(
 			hostname,
@@ -1301,6 +1354,7 @@ var _ = Describe("Wireguard (disabled)", func() {
 			FelixRouteProtocol,
 			s.status,
 			logutils.NewSummarizer("test loop"),
+			mockProcSys.write,
 		)
 	})
 
@@ -1451,10 +1505,14 @@ var _ = Describe("Wireguard (disabled)", func() {
 })
 
 var _ = Describe("Wireguard (with no table index)", func() {
-	var wgDataplane, rtDataplane, rrDataplane *mocknetlink.MockNetlinkDataplane
-	var t *mocktime.MockTime
-	var s mockStatus
-	var wgFn func(bool)
+	var (
+		wgDataplane, rtDataplane, rrDataplane *mocknetlink.MockNetlinkDataplane
+
+		t           *mocktime.MockTime
+		s           mockStatus
+		wgFn        func(bool)
+		mockProcSys *testProcSys
+	)
 
 	BeforeEach(func() {
 		wgDataplane = mocknetlink.New()
@@ -1462,6 +1520,7 @@ var _ = Describe("Wireguard (with no table index)", func() {
 		rrDataplane = mocknetlink.New()
 		t = mocktime.New()
 		t.SetAutoIncrement(11 * time.Second)
+		mockProcSys = &testProcSys{state: map[string]string{}, pathsThatExist: map[string]bool{}}
 
 		wgFn = func(enabled bool) {
 			NewWithShims(
@@ -1484,6 +1543,7 @@ var _ = Describe("Wireguard (with no table index)", func() {
 				FelixRouteProtocol,
 				s.status,
 				logutils.NewSummarizer("test loop"),
+				mockProcSys.write,
 			)
 		}
 	})
