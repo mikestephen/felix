@@ -27,9 +27,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/projectcalico/api/pkg/lib/numorstring"
 	"github.com/projectcalico/libcalico-go/lib/apiconfig"
 	"github.com/projectcalico/libcalico-go/lib/names"
-	"github.com/projectcalico/libcalico-go/lib/numorstring"
 
 	"github.com/projectcalico/felix/idalloc"
 	"github.com/projectcalico/typha/pkg/discovery"
@@ -98,6 +98,56 @@ func (source Source) Local() bool {
 		return true
 	default:
 		return false
+	}
+}
+
+// Provider represents a particular provider or flavor of Kubernetes.
+type Provider uint8
+
+const (
+	ProviderNone Provider = iota
+	ProviderEKS
+	ProviderGKE
+	ProviderAKS
+	ProviderOpenShift
+	ProviderDockerEE
+)
+
+func (p Provider) String() string {
+	switch p {
+	case ProviderNone:
+		return ""
+	case ProviderEKS:
+		return "EKS"
+	case ProviderGKE:
+		return "GKE"
+	case ProviderAKS:
+		return "AKS"
+	case ProviderOpenShift:
+		return "OpenShift"
+	case ProviderDockerEE:
+		return "DockerEnterprise"
+	default:
+		return fmt.Sprintf("<unknown-provider(%v)>", uint8(p))
+	}
+}
+
+func newProvider(s string) (Provider, error) {
+	switch strings.ToLower(s) {
+	case strings.ToLower(ProviderNone.String()):
+		return ProviderNone, nil
+	case strings.ToLower(ProviderEKS.String()):
+		return ProviderEKS, nil
+	case strings.ToLower(ProviderGKE.String()):
+		return ProviderGKE, nil
+	case strings.ToLower(ProviderAKS.String()):
+		return ProviderAKS, nil
+	case strings.ToLower(ProviderOpenShift.String()):
+		return ProviderOpenShift, nil
+	case strings.ToLower(ProviderDockerEE.String()):
+		return ProviderDockerEE, nil
+	default:
+		return 0, fmt.Errorf("unknown provider %s", s)
 	}
 }
 
@@ -242,6 +292,7 @@ type Config struct {
 	PrometheusMetricsPort           int    `config:"int(0,65535);9091"`
 	PrometheusGoMetricsEnabled      bool   `config:"bool;true"`
 	PrometheusProcessMetricsEnabled bool   `config:"bool;true"`
+	PrometheusWireGuardMetricsEnabled bool `config:"bool;true"`
 
 	FailsafeInboundHostPorts  []ProtoPort `config:"port-list;tcp:22,udp:68,tcp:179,tcp:2379,tcp:2380,tcp:5473,tcp:6443,tcp:6666,tcp:6667;die-on-fail"`
 	FailsafeOutboundHostPorts []ProtoPort `config:"port-list;udp:53,udp:67,tcp:179,tcp:2379,tcp:2380,tcp:5473,tcp:6443,tcp:6666,tcp:6667;die-on-fail"`
@@ -395,6 +446,24 @@ func (config *Config) OpenstackActive() bool {
 	}
 	log.Debug("No evidence this is an OpenStack deployment; disabling OpenStack special-cases")
 	return false
+}
+
+// KubernetesProvider attempts to parse the kubernetes provider, e.g. AKS out of the ClusterType.
+// The ClusterType is a string which contains a set of comma-separated values in no particular order.
+func (config *Config) KubernetesProvider() Provider {
+	settings := strings.Split(config.ClusterType, ",")
+	for _, s := range settings {
+		p, err := newProvider(s)
+		if err == nil {
+			log.WithFields(log.Fields{"clusterType": config.ClusterType, "provider": p}).Debug(
+				"detected a known kubernetes provider")
+			return p
+		}
+	}
+
+	log.WithField("clusterType", config.ClusterType).Debug(
+		"failed to detect a known kubernetes provider, defaulting to none")
+	return ProviderNone
 }
 
 func (config *Config) resolve() (changed bool, err error) {

@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2020 Tigera, Inc. All rights reserved.
+// Copyright (c) 2016-2021 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,8 +33,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	v3 "github.com/projectcalico/libcalico-go/lib/apis/v3"
-	"github.com/projectcalico/libcalico-go/lib/numorstring"
+	v3 "github.com/projectcalico/api/pkg/apis/projectcalico/v3"
+	"github.com/projectcalico/api/pkg/lib/numorstring"
 )
 
 var _ = Describe("FelixConfig vs ConfigParams parity", func() {
@@ -508,6 +508,27 @@ var _ = DescribeTable("OpenStack heuristic tests",
 	Entry("ifacePrefixes = cali,tap", nil, nil, nil, "cali,tap", true),
 	Entry("ifacePrefixes = tap,cali ", nil, nil, nil, "tap,cali", true),
 	Entry("ifacePrefixes = cali ", nil, nil, nil, "cali", false),
+)
+
+var _ = DescribeTable("Kubernetes Provider tests",
+	func(clusterType string, expected config.Provider) {
+		c := config.New()
+		c.ClusterType = clusterType
+		Expect(c.KubernetesProvider()).To(Equal(expected))
+	},
+	Entry("no config", nil, config.ProviderNone),
+
+	Entry("explicit provider as cluster type", "aks", config.ProviderAKS),
+	Entry("explicit provider at start of cluster type", "AKS,k8s", config.ProviderAKS),
+	Entry("explicit provider at end of cluster type", "k8s,aks", config.ProviderAKS),
+	Entry("explicit provider in middle of cluster type", "k8s,EKS,k8s", config.ProviderEKS),
+	Entry("no explicit provider in cluster type", "k8s,something,else", config.ProviderNone),
+
+	Entry("EKS provider", "k8s,eks", config.ProviderEKS),
+	Entry("GKE provider", "GKE,k8s", config.ProviderGKE),
+	Entry("AKS provider", "Aks,k8s", config.ProviderAKS),
+	Entry("OpenShift provider", "OpenShift,k8s", config.ProviderOpenShift),
+	Entry("DockerEE provider", "dockerenterprise,k8s", config.ProviderDockerEE),
 )
 
 var _ = Describe("DatastoreConfig tests", func() {

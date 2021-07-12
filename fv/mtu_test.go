@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Tigera, Inc. All rights reserved.
+// Copyright (c) 2020-2021 Tigera, Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	api "github.com/projectcalico/api/pkg/apis/projectcalico/v3"
 	"github.com/projectcalico/felix/fv/infrastructure"
 	"github.com/projectcalico/libcalico-go/lib/apiconfig"
-	api "github.com/projectcalico/libcalico-go/lib/apis/v3"
 	client "github.com/projectcalico/libcalico-go/lib/clientv3"
 	"github.com/projectcalico/libcalico-go/lib/options"
 )
@@ -44,7 +44,6 @@ var _ = infrastructure.DatastoreDescribe("VXLAN topology before adding host IPs 
 			topologyOptions := infrastructure.DefaultTopologyOptions()
 			topologyOptions.VXLANMode = api.VXLANModeAlways
 			topologyOptions.IPIPEnabled = false
-			topologyOptions.FelixLogSeverity = "debug"
 
 			// Configure the interface pattern so that it doesn't match any host interfaces.
 			topologyOptions.ExtraEnvVars["FELIX_MTUIFACEPATTERN"] = "foo"

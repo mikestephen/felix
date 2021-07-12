@@ -28,7 +28,7 @@
 #
 ###############################################################################
 PACKAGE_NAME?=github.com/projectcalico/felix
-GO_BUILD_VER?=v0.53
+GO_BUILD_VER?=v0.54
 
 ORGANIZATION=projectcalico
 SEMAPHORE_PROJECT_ID?=$(SEMAPHORE_FELIX_PROJECT_ID)
@@ -147,7 +147,7 @@ clean:
 ###############################################################################
 # Automated pin updates
 ###############################################################################
-update-pins: update-libcalico-pin update-typha-pin update-pod2daemon-pin
+update-pins: update-api-pin update-libcalico-pin update-typha-pin update-pod2daemon-pin
 
 POD2DAEMON_BRANCH?=$(PIN_BRANCH)
 POD2DAEMON_REPO?=github.com/projectcalico/pod2daemon
@@ -354,6 +354,7 @@ fv fv/latency.log fv/data-races.log: $(REMOTE_DEPS) image-test bin/iptables-lock
 	  FV_K8SIMAGE=$(FV_K8SIMAGE) \
 	  FV_NUM_BATCHES=$(FV_NUM_BATCHES) \
 	  FV_BATCHES_TO_RUN="$(FV_BATCHES_TO_RUN)" \
+	  FV_FELIX_LOG_LEVEL="$(FV_FELIX_LOG_LEVEL)" \
 	  PRIVATE_KEY=`pwd`/private.key \
 	  GINKGO_ARGS='$(GINKGO_ARGS)' \
 	  GINKGO_FOCUS="$(GINKGO_FOCUS)" \

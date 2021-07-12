@@ -17,6 +17,7 @@ package infrastructure
 import (
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"sync"
 	"time"
@@ -26,7 +27,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	api "github.com/projectcalico/libcalico-go/lib/apis/v3"
+	api "github.com/projectcalico/api/pkg/apis/projectcalico/v3"
 	client "github.com/projectcalico/libcalico-go/lib/clientv3"
 	"github.com/projectcalico/libcalico-go/lib/errors"
 	"github.com/projectcalico/libcalico-go/lib/options"
@@ -60,8 +61,13 @@ type TopologyOptions struct {
 }
 
 func DefaultTopologyOptions() TopologyOptions {
+	felixLogLevel := "info"
+	if envLogLevel := os.Getenv("FV_FELIX_LOG_LEVEL"); envLogLevel != "" {
+		log.WithField("level", envLogLevel).Info("FV_FELIX_LOG_LEVEL env var set; overriding felix log level")
+		felixLogLevel = envLogLevel
+	}
 	return TopologyOptions{
-		FelixLogSeverity:  "info",
+		FelixLogSeverity:  felixLogLevel,
 		EnableIPv6:        true,
 		ExtraEnvVars:      map[string]string{},
 		ExtraVolumes:      map[string]string{},
