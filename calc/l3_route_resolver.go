@@ -332,6 +332,9 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 	var nodeInfo *l3rrNodeInfo
 	if update.Value != nil {
 		node := update.Value.(*apiv3.Node)
+
+		logrus.WithField("node", *node).Debug("MIKE: OnResourceUpdate called")
+
 		if node.Spec.BGP != nil && node.Spec.BGP.IPv4Address != "" {
 			bgp := node.Spec.BGP
 			// Use cnet.ParseCIDROrIP so we get the IP and the CIDR.  The parse functions in the ip package
